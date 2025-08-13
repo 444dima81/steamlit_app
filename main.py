@@ -2,53 +2,80 @@ import streamlit as st
 import yfinance as yf
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 from datetime import date, timedelta
 
 # Настройка оформления
-st.set_page_config(page_title="Apple Dashboard", layout="wide")
+st.set_page_config(page_title="Tips Dashbords", layout="wide")
 sns.set_theme(style="whitegrid")
+tips = pd.read_csv('tips.csv')
 
-# Сайдбар
-st.sidebar.header("Настройки")
+# --- Боковая панель ---
+st.sidebar.header("Настройки фильтрации")
 
-start_date = st.sidebar.date_input(
-    "Дата начала",
-    value=date.today() - timedelta(days=180)
+sex_filter = st.sidebar.multiselect(
+    "Пол",
+    options=tips['sex'].unique(),
+    default=tips['sex'].unique()
 )
-end_date = st.sidebar.date_input(
-    "Дата окончания",
-    value=date.today()
+
+smoker_filter = st.sidebar.multiselect(
+    "Курение",
+    options=tips['smoker'].unique(),
+    default=tips['smoker'].unique()
+)
+
+time_filter = st.sidebar.multiselect(
+    "Время приема пищи",
+    options=tips['time'].unique(),
+    default=tips['time'].unique()
 )
 
 chart_type = st.sidebar.selectbox(
     "Тип графика",
-    ["Линейный"]
+    ["Scatter", "Box", "Histogram"]
 )
+point_size = st.sidebar.slider("Размер точек (для Scatter)", 50, 300, 100)
+# Header
+st.title('Проект по визализации данных')
+st.subheader(f"Подбробная Статистика Чаевых ", divider='gray')
 
-# Загрузка данных 
-ticker = "AAPL"
-data = yf.download(ticker, start=start_date, end=end_date)
+# Вывод таблицы
+st.markdown("### Общий план данных")
+st.dataframe(tips)
 
-# Заголовок + дата
-st.title(f"Котировки Apple")
-st.subheader(f"Данные за {start_date} — {end_date}", divider=True)
-st.markdown("График для анализа котировок Apple")
+# Построение графиков
+fig, ax = plt.subplots(figsize=(8, 5))
 
-# Построение графика
-if not data.empty:
-    if chart_type == "Линейный":
-        fig, ax = plt.subplots(figsize=(10, 5))
-        close_prices = data["Close"].squeeze()  # превращаем в Series
-        sns.lineplot(x=data.index, y=close_prices, ax=ax, color="blue")
-        ax.set_title("Динамика цен", fontsize=14)
-        ax.set_xlabel("Дата")
-        ax.set_ylabel("Цена (USD)")
-        plt.xticks(rotation=45)
-        st.pyplot(fig)
+if chart_type == "Scatter":
+    sns.scatterplot(
+        data=tips,
+        x='total_bill',
+        y='tip',
+        hue='sex',
+        style='smoker',
+        s=point_size,
+        ax=ax
+    )
+    ax.set_title("Связь между счетом и чаевыми")
 
-    # Таблица 
-    st.subheader("Данные", divider=True)
-    st.dataframe(data.style.format("{:.2f}"))
-else:
-    st.warning("Нет данных за выбранный период.")
-    
+elif chart_type == "Box":
+    sns.boxplot(
+        data=tips,
+        x='day',
+        y='total_bill',
+        hue='time',
+        ax=ax
+    )
+    ax.set_title("Сумма счетов по дням недели")
+
+elif chart_type == "Histogram":
+    sns.histplot(
+        data=tips,
+        x='total_bill',
+        hue='sex',
+        ax=ax
+    )
+    ax.set_title("Распределение суммы счетов")
+
+st.pyplot(fig)
